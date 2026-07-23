@@ -1,0 +1,45 @@
+{
+  "candidate": "PdH4",
+  "cell": "Pd2H8 conventional Im-3m cell",
+  "gate": "PBE plane-wave fixed-cell volume and structural replication",
+  "lattice_constants_A": [3.6, 3.8, 4.0, 4.2, 4.4],
+  "settings": {
+    "code": "GPAW 25.7.0",
+    "xc": "PBE",
+    "mode": "PW",
+    "cutoff_eV": 600,
+    "kmesh": [8, 8, 8],
+    "gamma_centered": true,
+    "spin_polarized": true,
+    "initial_Pd_moment_muB": 1.0,
+    "occupation_width_eV": 0.05,
+    "symmetry": "off",
+    "fixed_cell": true,
+    "optimizer": "BFGS",
+    "fmax_eV_per_A": 0.05,
+    "max_steps": 100,
+    "hydrogen_symmetry_breaking_displacement_A": 0.01,
+    "displacement_seed": 20260723
+  },
+  "pass_requires": {
+    "all_jobs_parsed": true,
+    "interior_energy_minimum": true,
+    "minimum_endpoint_fmax_eV_per_A_max": 0.05,
+    "minimum_HH_A_min": 1.0,
+    "Pd_H_coordination_within_2p25_A_each": 8,
+    "total_moment_abs_muB_max": 0.10,
+    "metallic_fractionally_occupied_state_count_min": 1
+  },
+  "edge_rule": "If the lowest energy is at 3.6 or 4.4 A, expand the bracket once in the downhill direction before deciding. A second edge-pinned downhill result kills the registered phase.",
+  "kill_triggers": [
+    "H-H distance below 1.0 A",
+    "loss of eightfold Pd-H coordination under 2.25 A cutoff",
+    "persistent total magnetic moment above 0.10 muB",
+    "insulating endpoint on the registered minimum mesh",
+    "no interior energy minimum after one bracket expansion",
+    "irreproducible or nonconvergent structural endpoint within the registered compute budget"
+  ],
+  "promotion": "Only a passing structural/volume gate may proceed to an independent endpoint replication and targeted Pd-H decomposition screen. No phonon or EPC calculation is authorized by this gate.",
+  "source_registration": "joshlacal/courtesy-leaderboard PR 31",
+  "registered_utc": "2026-07-23T19:30:00Z"
+}
