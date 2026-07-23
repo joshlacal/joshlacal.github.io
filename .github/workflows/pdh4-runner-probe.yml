@@ -1,8 +1,6 @@
 name: PdH4 public GPAW runner probe
 
 on:
-  pull_request:
-    branches: [master]
   workflow_dispatch:
 
 permissions:
