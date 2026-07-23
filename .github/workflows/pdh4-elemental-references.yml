@@ -1,0 +1,93 @@
+name: PdH4 elemental decomposition references
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    name: reference (${{ matrix.case_id }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        include:
+          - {case_id: pd_a3p7, kind: Pd_fcc, value: '3.7'}
+          - {case_id: pd_a3p8, kind: Pd_fcc, value: '3.8'}
+          - {case_id: pd_a3p9, kind: Pd_fcc, value: '3.9'}
+          - {case_id: pd_a4p0, kind: Pd_fcc, value: '4.0'}
+          - {case_id: pd_a4p1, kind: Pd_fcc, value: '4.1'}
+          - {case_id: h2_b0p70, kind: H2, value: '0.70'}
+          - {case_id: h2_b0p74, kind: H2, value: '0.74'}
+          - {case_id: h2_b0p78, kind: H2, value: '0.78'}
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      NUMEXPR_NUM_THREADS: '2'
+      CASE_ID: ${{ matrix.case_id }}
+      KIND: ${{ matrix.kind }}
+      VALUE: ${{ matrix.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: gpaw-pdh4-ref
+          create-args: >-
+            python=3.10
+            gpaw=25.7.0
+            gpaw-data
+            ase=3.29.0
+            numpy
+            scipy
+            -c conda-forge
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: all
+      - name: Execute frozen reference calculation
+        shell: bash -el {0}
+        run: |
+          set -uo pipefail
+          OUT="results/${CASE_ID}"
+          mkdir -p "$OUT"
+          cp pdh4-compute/pdh4_elemental_reference.py "$OUT/run.py"
+          cp pdh4-compute/ELEMENTAL_DECOMPOSITION_GATE.json "$OUT/ELEMENTAL_DECOMPOSITION_GATE.json"
+          cd "$OUT"
+          cat > command.json <<EOF
+          {
+            "candidate_context": "PdH4",
+            "calculation_id": "${CASE_ID}",
+            "kind": "${KIND}",
+            "value": ${VALUE},
+            "command": "python run.py",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_attempt": "${GITHUB_RUN_ATTEMPT}",
+            "git_sha": "${GITHUB_SHA}"
+          }
+          EOF
+          python --version > software_versions.txt 2>&1
+          gpaw info >> software_versions.txt 2>&1 || true
+          micromamba env export --explicit > environment_explicit.txt
+          python -m py_compile run.py
+          sha256sum run.py ELEMENTAL_DECOMPOSITION_GATE.json command.json > input_and_script_sha256.txt
+          set +e
+          /usr/bin/time -v -o walltime.txt python run.py > stdout.log 2> stderr.log
+          rc=$?
+          printf '%s\n' "$rc" > exit_code.txt
+          set -e
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          exit "$rc"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdh4-reference-${{ matrix.case_id }}
+          path: results/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 14
