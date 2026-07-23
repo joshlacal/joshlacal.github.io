@@ -1,0 +1,30 @@
+{
+  "candidate": "PdH4",
+  "reaction_per_formula": "PdH4 -> Pd(fcc) + 2 H2(gas)",
+  "registered_before_reference_numbers": true,
+  "method": {
+    "code": "GPAW 25.7.0",
+    "xc": "PBE",
+    "mode": "PW",
+    "cutoff_eV": 600,
+    "Pd_conventional_fcc_lattice_scan_A": [3.7, 3.8, 3.9, 4.0, 4.1],
+    "Pd_kmesh": [8, 8, 8],
+    "Pd_spin_polarized": true,
+    "Pd_initial_moment_muB_each": 1.0,
+    "H2_cell_A": 15.0,
+    "H2_bond_scan_A": [0.70, 0.74, 0.78],
+    "H2_kmesh": [1, 1, 1],
+    "H2_spin_polarized": false,
+    "occupation_width_eV": 0.05
+  },
+  "candidate_energy_source": "minimum passing Pd2H8 endpoint from the registered five-volume structural gate",
+  "formation_energy_definition": "[E(Pd2H8) - 2 E(Pd_fcc_atom) - 4 E(H2)] / 10 atoms",
+  "kill_threshold_eV_per_atom": 0.15,
+  "decision": {
+    "greater_than_0p15_eV_per_atom": "KILLED_ELEMENTAL_DECOMPOSITION",
+    "between_0_and_0p15_eV_per_atom": "continue with named metastability liability and compute fuller PdHx competing-phase hull",
+    "less_than_or_equal_0_eV_per_atom": "compute fuller PdHx competing-phase hull; elemental stability alone is not a hull pass"
+  },
+  "limitations": "Electronic PBE energies without zero-point or finite-temperature corrections. A value near the threshold requires higher-level and vibrational uncertainty analysis; a value far above it is decisive for this campaign.",
+  "registered_utc": "2026-07-23T20:00:00Z"
+}
