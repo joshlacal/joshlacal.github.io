@@ -1,0 +1,90 @@
+name: PdH4 Stage-1 public PBE volume gate
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  volume-relax:
+    name: PdH4 volume (${{ matrix.case_id }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - {case_id: a3p6, lattice_A: '3.6'}
+          - {case_id: a3p8, lattice_A: '3.8'}
+          - {case_id: a4p0, lattice_A: '4.0'}
+          - {case_id: a4p2, lattice_A: '4.2'}
+          - {case_id: a4p4, lattice_A: '4.4'}
+    env:
+      OMP_NUM_THREADS: '2'
+      OPENBLAS_NUM_THREADS: '2'
+      MKL_NUM_THREADS: '2'
+      NUMEXPR_NUM_THREADS: '2'
+      CASE_ID: ${{ matrix.case_id }}
+      LATTICE_A: ${{ matrix.lattice_A }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: gpaw-pdh4
+          create-args: >-
+            python=3.10
+            gpaw=25.7.0
+            gpaw-data
+            ase=3.29.0
+            numpy
+            scipy
+            -c conda-forge
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: all
+      - name: Execute frozen PdH4 volume calculation
+        shell: bash -el {0}
+        run: |
+          set -uo pipefail
+          OUT="results/${CASE_ID}"
+          mkdir -p "$OUT"
+          cp pdh4-compute/pdh4_volume_scan.py "$OUT/run.py"
+          cp pdh4-compute/VOLUME_GATE_CRITERIA.json "$OUT/VOLUME_GATE_CRITERIA.json"
+          cd "$OUT"
+          cat > command.json <<EOF
+          {
+            "candidate": "PdH4",
+            "calculation_id": "${CASE_ID}",
+            "lattice_constant_A": ${LATTICE_A},
+            "command": "python run.py",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_attempt": "${GITHUB_RUN_ATTEMPT}",
+            "git_sha": "${GITHUB_SHA}"
+          }
+          EOF
+          python --version > software_versions.txt 2>&1
+          gpaw info >> software_versions.txt 2>&1 || true
+          micromamba env export --explicit > environment_explicit.txt
+          python -m py_compile run.py
+          sha256sum run.py VOLUME_GATE_CRITERIA.json command.json > input_and_script_sha256.txt
+          set +e
+          /usr/bin/time -v -o walltime.txt python run.py > stdout.log 2> stderr.log
+          rc=$?
+          printf '%s\n' "$rc" > exit_code.txt
+          set -e
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS
+          exit "$rc"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdh4-volume-${{ matrix.case_id }}
+          path: results/${{ matrix.case_id }}/
+          if-no-files-found: error
+          retention-days: 14
