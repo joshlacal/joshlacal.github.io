@@ -1,0 +1,56 @@
+name: PdH4 public GPAW runner probe
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gpaw-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: gpaw-probe
+          create-args: >-
+            python=3.10
+            gpaw=25.7.0
+            gpaw-data
+            ase=3.29.0
+            numpy
+            scipy
+            -c conda-forge
+          init-shell: bash
+          cache-environment: true
+          post-cleanup: all
+      - name: Verify GPAW and execute a minimal periodic calculation
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          mkdir -p results/probe
+          python --version > results/probe/software.txt
+          gpaw info >> results/probe/software.txt
+          python - <<'PY' > results/probe/stdout.log 2> results/probe/stderr.log
+          import json
+          from pathlib import Path
+          from ase import Atoms
+          from gpaw import GPAW, PW, FermiDirac
+
+          atoms = Atoms('H2', positions=[[0, 0, 0], [0.75, 0, 0]], cell=[5, 5, 5], pbc=True)
+          atoms.calc = GPAW(mode=PW(300), xc='PBE', kpts=(1, 1, 1), occupations=FermiDirac(0.05), txt='results/probe/gpaw.txt')
+          energy = float(atoms.get_potential_energy())
+          Path('results/probe/result.json').write_text(json.dumps({'status':'PASSED_EXECUTION','energy_eV':energy}, indent=2) + '\n')
+          PY
+          find results/probe -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > results/probe/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pdh4-public-runner-probe
+          path: results/probe/
+          if-no-files-found: error
+          retention-days: 7
